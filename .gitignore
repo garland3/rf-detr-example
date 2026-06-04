@@ -10,6 +10,7 @@ __pycache__/
 
 # Runtime / local artifacts
 server.log
+podman-build.log
 .playwright-mcp/
 *.pth
 

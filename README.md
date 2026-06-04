@@ -123,8 +123,50 @@ and labels drawn on — `image_size`, `model`, and the full `hardware` object.
 uv run pytest -q
 ```
 
-The suite loads the real model and exercises the API end-to-end: health,
-detection on a sample image, and rejection of non-image / empty uploads.
+Two layers of tests:
+
+- **API end-to-end** (`tests/test_api.py`) — loads the real model and exercises
+  the HTTP API via FastAPI's `TestClient`: health, detection on a sample image,
+  and rejection of non-image / empty uploads.
+- **Browser end-to-end with Playwright** (`tests/test_e2e_playwright.py`) —
+  spawns the real uvicorn server in a subprocess, drives a headless Chromium
+  browser through the actual UI (upload → detect → read results), and asserts on
+  what the user sees (hardware badge, detection count vs. table rows, annotated
+  image, "Computed on" device). It also **regenerates the screenshots** below.
+
+```bash
+# One-time browser download, then run the browser E2E test:
+uv run playwright install chromium
+uv run pytest tests/test_e2e_playwright.py -q
+```
+
+## Docker (RHEL 9)
+
+A [`Dockerfile`](Dockerfile) based on Red Hat's **UBI 9** Python 3.12 image is
+included.
+
+```bash
+# Build (pre-downloads model weights by default; pass --build-arg PREFETCH_WEIGHTS=0 to skip)
+docker build -t rf-detr-example .          # or: podman build -t rf-detr-example .
+
+# Run (CPU)
+docker run --rm -p 8011:8011 rf-detr-example
+
+# Run with a GPU (requires the NVIDIA Container Toolkit)
+docker run --rm --gpus all -p 8011:8011 rf-detr-example
+# podman:  podman run --rm --device nvidia.com/gpu=all -p 8011:8011 rf-detr-example
+```
+
+Then open <http://localhost:8011>. The container reports the active device on
+`/api/health` and in the UI just like the local app. The image bundles CUDA
+torch (~7 GB); the same image runs on CPU or GPU.
+
+> **podman note:** the `HEALTHCHECK` is honored only with the Docker image
+> format — build with `podman build --format docker -t rf-detr-example .` if you
+> want it. It is ignored (with a harmless warning) under the default OCI format.
+
+This image has been built and validated end-to-end on RHEL 9 / UBI 9 (health +
+detection inside the container, with automatic CPU fallback).
 
 ## Screenshots
 

@@ -1,0 +1,12 @@
+.git/
+.venv/
+.pytest_cache/
+.playwright-mcp/
+__pycache__/
+**/__pycache__/
+*.pyc
+screenshots/
+tests/
+server.log
+*.pth
+.DS_Store
