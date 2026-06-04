@@ -1,0 +1,23 @@
+[project]
+name = "rf-detr-example"
+version = "0.1.0"
+description = "FastAPI + RF-DETR object detection proof of concept with a web UI and GPU/CPU auto-detection"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.136.3",
+    "pillow>=12.2.0",
+    "python-multipart>=0.0.30",
+    "rfdetr>=1.7.1",
+    "uvicorn[standard]>=0.49.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.3",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

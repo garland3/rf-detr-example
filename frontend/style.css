@@ -1,0 +1,173 @@
+:root {
+  --bg: #0f1117;
+  --panel: #181b24;
+  --panel-2: #20242f;
+  --border: #2a2f3a;
+  --text: #e6e9ef;
+  --muted: #9aa3b2;
+  --accent: #6c8cff;
+  --accent-2: #4f6bff;
+  --gpu: #28c76f;
+  --cpu: #ff9f43;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: radial-gradient(1200px 600px at 50% -10%, #1b2030 0%, var(--bg) 60%);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+header {
+  text-align: center;
+  padding: 2rem 1rem 1rem;
+}
+header h1 { margin: 0 0 .25rem; font-size: 1.8rem; }
+.subtitle { color: var(--muted); margin: 0 0 1rem; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .4rem .8rem;
+  border-radius: 999px;
+  font-size: .85rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.badge .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.badge-gpu { color: var(--gpu); border-color: var(--gpu); }
+.badge-gpu .dot { background: var(--gpu); box-shadow: 0 0 8px var(--gpu); }
+.badge-cpu { color: var(--cpu); border-color: var(--cpu); }
+.badge-cpu .dot { background: var(--cpu); box-shadow: 0 0 8px var(--cpu); }
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem;
+}
+
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  background: var(--panel-2);
+}
+.dropzone:hover, .dropzone.dragover {
+  border-color: var(--accent);
+  background: #232838;
+}
+.dz-icon { font-size: 2.5rem; }
+.dropzone p { margin: .35rem 0; }
+.hint { color: var(--muted); font-size: .85rem; }
+
+.controls {
+  margin-top: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+.controls label { font-size: .9rem; color: var(--muted); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+
+button {
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  color: white;
+  border: none;
+  padding: .7rem 1rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s, transform .05s;
+}
+button:hover:not(:disabled) { opacity: .92; }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+
+.status { color: var(--muted); min-height: 1.2em; margin: .8rem 0 0; font-size: .9rem; }
+.status.error { color: #ff6b6b; }
+
+.result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+.chip {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .35rem .65rem;
+  font-size: .82rem;
+}
+.chip strong { color: var(--accent); }
+.chip.hw-gpu strong { color: var(--gpu); }
+.chip.hw-cpu strong { color: var(--cpu); }
+
+.result-image-wrap { text-align: center; }
+#result-image {
+  max-width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+h3 { margin: 1.2rem 0 .6rem; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .88rem;
+}
+th, td {
+  text-align: left;
+  padding: .5rem .6rem;
+  border-bottom: 1px solid var(--border);
+}
+th { color: var(--muted); font-weight: 600; }
+td.conf { font-variant-numeric: tabular-nums; }
+.bar {
+  display: inline-block;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--accent);
+  vertical-align: middle;
+  margin-left: .4rem;
+}
+
+footer {
+  text-align: center;
+  color: var(--muted);
+  padding: 2rem 1rem;
+  font-size: .85rem;
+}
+footer a { color: var(--accent); }
+
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  vertical-align: middle;
+  margin-right: .4rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

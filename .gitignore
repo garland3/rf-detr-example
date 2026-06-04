@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# uv
+# (keep uv.lock committed for reproducibility)
+
+# Runtime / local artifacts
+server.log
+.playwright-mcp/
+*.pth
+
+# OS
+.DS_Store

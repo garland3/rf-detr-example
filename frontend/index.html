@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RF-DETR Object Detection</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔎</text></svg>" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>🔎 RF-DETR Object Detection</h1>
+    <p class="subtitle">Upload an image &mdash; detect objects with Roboflow's RF-DETR transformer.</p>
+    <div id="hardware-badge" class="badge badge-unknown" title="Hardware performing inference">
+      <span class="dot"></span><span id="hardware-text">detecting hardware&hellip;</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div id="dropzone" class="dropzone">
+        <input type="file" id="file-input" accept="image/*" hidden />
+        <div class="dropzone-inner">
+          <div class="dz-icon">🖼️</div>
+          <p><strong>Drop an image here</strong> or click to browse</p>
+          <p class="hint">JPEG / PNG / WebP &middot; up to 15 MB</p>
+        </div>
+      </div>
+
+      <div class="controls">
+        <label for="threshold">Confidence threshold: <strong id="threshold-value">0.50</strong></label>
+        <input type="range" id="threshold" min="0.05" max="0.95" step="0.05" value="0.5" />
+        <button id="detect-btn" disabled>Detect objects</button>
+      </div>
+      <p id="status" class="status"></p>
+    </section>
+
+    <section class="panel results" id="results" hidden>
+      <div class="result-meta" id="result-meta"></div>
+      <div class="result-image-wrap">
+        <img id="result-image" alt="Detection result" />
+      </div>
+      <h3>Detections (<span id="det-count">0</span>)</h3>
+      <table id="det-table">
+        <thead>
+          <tr><th>#</th><th>Class</th><th>Confidence</th><th>Box (x1, y1, x2, y2)</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <span>Proof of concept &middot; <a href="https://github.com/roboflow/rf-detr" target="_blank" rel="noopener">RF-DETR</a> + FastAPI</span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
