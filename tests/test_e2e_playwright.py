@@ -94,10 +94,13 @@ def _set_threshold(page, value: float) -> None:
     )
 
 
-def _detect(page, image_path: Path, threshold: float):
-    """Upload an image, run detection, and return the parsed result chips."""
+def _detect(page, image_path: Path, threshold: float, mode: str = "both"):
+    """Upload an image, choose an overlay mode, run detection."""
     page.set_input_files("#file-input", str(image_path))
     _set_threshold(page, threshold)
+    # The radio inputs are visually hidden behind their labels (segmented
+    # control), so click the label -- the real user action.
+    page.click(f'#mode-control label[for="mode-{mode}"]')
     page.click("#detect-btn")
     # Wait until the status line reports completion.
     page.wait_for_function(
@@ -132,8 +135,11 @@ def test_e2e_browser(server):
             assert ("badge-cpu" in badge_class) or ("badge-gpu" in badge_class)
             page.screenshot(path=str(SCREENSHOTS / "01-home.png"), full_page=True)
 
-            # --- Detection on the bus image ---------------------------------
-            _detect(page, IMAGES / "people.jpg", 0.5)
+            # The overlay (box/mask/both) control must be present.
+            assert page.locator("#mode-control").is_visible()
+
+            # --- Bus image: boxes + light segmentation overlay (both) -------
+            _detect(page, IMAGES / "people.jpg", 0.5, mode="both")
 
             count = int(page.inner_text("#det-count"))
             assert count >= 1, "expected at least one detection on people.jpg"
@@ -149,15 +155,17 @@ def test_e2e_browser(server):
             assert ("CPU" in meta) or ("GPU" in meta)
             assert "RFDETR" in meta  # model is reported
             assert "ms" in meta      # timing is reported
+            assert "Boxes + masks" in meta  # overlay mode is reported
 
             classes = page.inner_text("#det-table").lower()
             assert "person" in classes, "expected a person detection on the bus image"
 
             page.screenshot(path=str(SCREENSHOTS / "02-results-bus.png"), full_page=True)
 
-            # --- Detection on the dog image (lower threshold) ---------------
-            _detect(page, IMAGES / "dog.jpg", 0.4)
+            # --- Dog image: segmentation masks only -------------------------
+            _detect(page, IMAGES / "dog.jpg", 0.4, mode="mask")
             assert int(page.inner_text("#det-count")) >= 1
+            assert "Masks" in page.inner_text("#result-meta")
             page.screenshot(path=str(SCREENSHOTS / "03-results-dog.png"), full_page=True)
         finally:
             browser.close()

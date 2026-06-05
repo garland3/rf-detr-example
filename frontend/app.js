@@ -82,9 +82,11 @@ async function runDetection() {
   detectBtn.disabled = true;
   setStatus('<span class="spinner"></span>Running inference&hellip;');
 
+  const mode = document.querySelector('input[name="mode"]:checked').value;
   const form = new FormData();
   form.append("file", selectedFile);
   form.append("threshold", thresholdInput.value);
+  form.append("mode", mode);
 
   try {
     const res = await fetch("/api/detect", { method: "POST", body: form });
@@ -110,10 +112,12 @@ function renderResult(data) {
   const isGpu = hw.device_type === "GPU";
   paintHardware(hw, data.hardware_label);
 
+  const modeLabel = { box: "Boxes", mask: "Masks", both: "Boxes + masks" }[data.mode] || data.mode;
   resultMeta.innerHTML = "";
   const chips = [
     { cls: isGpu ? "hw-gpu" : "hw-cpu", label: "Computed on", value: data.hardware_label },
     { label: "Model", value: data.model },
+    { label: "Overlay", value: modeLabel },
     { label: "Inference", value: data.inference_ms + " ms" },
     { label: "Objects", value: data.count },
     { label: "Image", value: `${data.image_size.width}×${data.image_size.height}` },
@@ -133,11 +137,14 @@ function renderResult(data) {
       const tr = document.createElement("tr");
       const b = d.box;
       const pct = Math.round(d.confidence * 100);
+      const boxCell = b ? `${b.x1}, ${b.y1}, ${b.x2}, ${b.y2}` : "&mdash;";
+      const areaCell = d.mask_area != null ? d.mask_area.toLocaleString() : "&mdash;";
       tr.innerHTML = `
         <td>${i + 1}</td>
         <td>${d.class_name}</td>
         <td class="conf">${pct}%<span class="bar" style="width:${Math.max(4, pct * 0.6)}px"></span></td>
-        <td>${b.x1}, ${b.y1}, ${b.x2}, ${b.y2}</td>`;
+        <td>${boxCell}</td>
+        <td>${areaCell}</td>`;
       detTableBody.appendChild(tr);
     });
   resultsEl.scrollIntoView({ behavior: "smooth", block: "nearest" });

@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RF-DETR Object Detection</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔎</text></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='42' cy='42' r='28' fill='none' stroke='%236c8cff' stroke-width='10'/><line x1='62' y1='62' x2='88' y2='88' stroke='%236c8cff' stroke-width='12' stroke-linecap='round'/></svg>" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <header>
-    <h1>🔎 RF-DETR Object Detection</h1>
+    <h1>RF-DETR Object Detection</h1>
     <p class="subtitle">Upload an image &mdash; detect objects with Roboflow's RF-DETR transformer.</p>
     <div id="hardware-badge" class="badge badge-unknown" title="Hardware performing inference">
       <span class="dot"></span><span id="hardware-text">detecting hardware&hellip;</span>
@@ -21,7 +21,13 @@
       <div id="dropzone" class="dropzone">
         <input type="file" id="file-input" accept="image/*" hidden />
         <div class="dropzone-inner">
-          <div class="dz-icon">🖼️</div>
+          <div class="dz-icon" aria-hidden="true">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="M21 15l-5-5L5 21" />
+            </svg>
+          </div>
           <p><strong>Drop an image here</strong> or click to browse</p>
           <p class="hint">JPEG / PNG / WebP &middot; up to 15 MB</p>
         </div>
@@ -30,6 +36,17 @@
       <div class="controls">
         <label for="threshold">Confidence threshold: <strong id="threshold-value">0.50</strong></label>
         <input type="range" id="threshold" min="0.05" max="0.95" step="0.05" value="0.5" />
+
+        <label>Overlay</label>
+        <div class="segmented" id="mode-control" role="group" aria-label="Overlay mode">
+          <input type="radio" name="mode" id="mode-box" value="box" />
+          <label for="mode-box">Boxes</label>
+          <input type="radio" name="mode" id="mode-mask" value="mask" />
+          <label for="mode-mask">Masks</label>
+          <input type="radio" name="mode" id="mode-both" value="both" checked />
+          <label for="mode-both">Both</label>
+        </div>
+
         <button id="detect-btn" disabled>Detect objects</button>
       </div>
       <p id="status" class="status"></p>
@@ -43,7 +60,7 @@
       <h3>Detections (<span id="det-count">0</span>)</h3>
       <table id="det-table">
         <thead>
-          <tr><th>#</th><th>Class</th><th>Confidence</th><th>Box (x1, y1, x2, y2)</th></tr>
+          <tr><th>#</th><th>Class</th><th>Confidence</th><th>Box (x1, y1, x2, y2)</th><th>Mask area (px)</th></tr>
         </thead>
         <tbody></tbody>
       </table>

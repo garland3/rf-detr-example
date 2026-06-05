@@ -55,7 +55,7 @@ RUN mkdir -p "$XDG_CACHE_HOME" "$HF_HOME" "$MPLCONFIGDIR" /opt/app-root/src/.rob
 # --- Run as the unprivileged user -----------------------------------------
 USER 1001
 
-# Optionally pre-download the RF-DETR weights (~349 MB) at build time so the
+# Optionally pre-download the RF-DETR weights (~128 MB) at build time so the
 # image is self-contained and the first request is fast. Set to 0 to skip and
 # fetch weights on first run instead.
 ARG PREFETCH_WEIGHTS=1

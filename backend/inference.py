@@ -1,9 +1,10 @@
 """RF-DETR inference wrapper.
 
-Loads an RF-DETR model once (singleton), runs object detection on uploaded
-images, and returns structured detections plus an annotated image. The model is
-placed on a GPU when one is usable and otherwise falls back to CPU; the device
-that actually ran each request is reported back to the caller.
+Loads an RF-DETR model once (singleton), runs object detection -- or instance
+segmentation -- on uploaded images, and returns structured results plus an
+annotated image. The model is placed on a GPU when one is usable and otherwise
+falls back to CPU; the device that actually ran each request is reported back to
+the caller.
 """
 from __future__ import annotations
 
@@ -11,7 +12,7 @@ import io
 import os
 import threading
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import supervision as sv
@@ -19,16 +20,31 @@ from PIL import Image
 
 from .hardware import detect_device, device_label, device_string
 
+# Task is configurable: "segment" (instance masks + boxes) or "detect" (boxes
+# only). Segmentation is the default so detected objects are also segmented.
+TASK = os.environ.get("RFDETR_TASK", "segment").lower()
 # Model size is configurable; default to "nano" for snappy CPU inference in this
 # proof-of-concept. Options: nano, small, medium, large.
 MODEL_SIZE = os.environ.get("RFDETR_MODEL", "nano").lower()
 
-_MODEL_CLASSES = {
+_DETECT_CLASSES = {
     "nano": "RFDETRNano",
     "small": "RFDETRSmall",
     "medium": "RFDETRMedium",
     "large": "RFDETRLarge",
 }
+_SEGMENT_CLASSES = {
+    "nano": "RFDETRSegNano",
+    "small": "RFDETRSegSmall",
+    "medium": "RFDETRSegMedium",
+    "large": "RFDETRSegLarge",
+}
+
+
+def _model_class_name() -> str:
+    table = _SEGMENT_CLASSES if TASK == "segment" else _DETECT_CLASSES
+    return table.get(MODEL_SIZE, table["nano"])
+
 
 _model = None
 _model_lock = threading.Lock()
@@ -39,7 +55,7 @@ _predict_lock = threading.Lock()
 def _build_model():
     import rfdetr
 
-    cls_name = _MODEL_CLASSES.get(MODEL_SIZE, "RFDETRNano")
+    cls_name = _model_class_name()
     model_cls = getattr(rfdetr, cls_name)
     device = device_string()
     try:
@@ -85,10 +101,10 @@ def warmup() -> None:
 
 
 def model_info() -> Dict[str, Any]:
-    cls_name = _MODEL_CLASSES.get(MODEL_SIZE, "RFDETRNano")
     return {
-        "model": cls_name,
+        "model": _model_class_name(),
         "model_size": MODEL_SIZE,
+        "task": "segment" if TASK == "segment" else "detect",
         "loaded": _model is not None,
     }
 
@@ -104,30 +120,77 @@ def _coco_class_name(class_id: int) -> str:
         return str(class_id)
 
 
-def _annotate(image: Image.Image, detections: "sv.Detections", labels: List[str]) -> Image.Image:
-    """Draw bounding boxes and labels onto a copy of the image."""
+def _polygon_area(p: np.ndarray) -> float:
+    """Area of a polygon given as an (N, 2) point array (shoelace formula)."""
+    if p is None or len(p) < 3:
+        return 0.0
+    x, y = p[:, 0], p[:, 1]
+    return float(abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1))) / 2.0)
+
+
+def _largest_polygon(mask: np.ndarray) -> Optional[List[List[int]]]:
+    """Return the largest contour of a boolean mask as a list of [x, y] points."""
+    try:
+        polygons = sv.mask_to_polygons(mask)
+    except Exception:
+        return None
+    if not polygons:
+        return None
+    largest = max(polygons, key=_polygon_area)
+    # Downsample very dense polygons to keep the JSON payload reasonable.
+    pts = largest.astype(int)
+    if len(pts) > 200:
+        step = len(pts) // 200 + 1
+        pts = pts[::step]
+    return [[int(x), int(y)] for x, y in pts]
+
+
+def _annotate(
+    image: Image.Image,
+    detections: "sv.Detections",
+    labels: List[str],
+    draw_boxes: bool = True,
+    draw_masks: bool = True,
+) -> Image.Image:
+    """Draw a light mask overlay and/or bounding boxes (plus labels) onto a copy."""
     annotated = image.copy()
-    resolution = max(image.size)
     thickness = sv.calculate_optimal_line_thickness(resolution_wh=image.size)
     text_scale = sv.calculate_optimal_text_scale(resolution_wh=image.size)
 
-    box_annotator = sv.BoxAnnotator(thickness=thickness)
+    # Light translucent mask overlay first, then boxes and labels on top.
+    if draw_masks and getattr(detections, "mask", None) is not None:
+        annotated = sv.MaskAnnotator(opacity=0.4).annotate(annotated, detections)
+
+    if draw_boxes:
+        annotated = sv.BoxAnnotator(thickness=thickness).annotate(annotated, detections)
+
+    # Labels are always drawn (anchored to the box corner) so objects stay
+    # identifiable even in mask-only mode.
     label_annotator = sv.LabelAnnotator(
         text_scale=text_scale,
         text_thickness=thickness,
         text_padding=max(2, thickness),
     )
-    annotated = box_annotator.annotate(annotated, detections)
     annotated = label_annotator.annotate(annotated, detections, labels=labels)
     return annotated
 
 
-def detect(image_bytes: bytes, threshold: float = 0.5) -> Dict[str, Any]:
-    """Run detection on raw image bytes.
+VALID_MODES = ("box", "mask", "both")
 
-    Returns a dict with the detections, an annotated image (PIL), timing and the
-    hardware that performed the inference.
+
+def detect(image_bytes: bytes, threshold: float = 0.5, mode: str = "both") -> Dict[str, Any]:
+    """Run detection/segmentation on raw image bytes.
+
+    ``mode`` selects what is drawn on the annotated image and what each detection
+    returns:
+      - "box"  -> bounding boxes only
+      - "mask" -> segmentation masks/polygons only
+      - "both" -> boxes plus a light mask overlay (default)
+
+    Returns a dict with the per-object results, an annotated image (PIL), timing
+    and the hardware that performed the inference.
     """
+    mode = mode if mode in VALID_MODES else "both"
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     model = get_model()
 
@@ -135,6 +198,11 @@ def detect(image_bytes: bytes, threshold: float = 0.5) -> Dict[str, Any]:
     with _predict_lock:
         detections = model.predict(image, threshold=threshold)
     elapsed_ms = (time.perf_counter() - start) * 1000.0
+
+    masks = getattr(detections, "mask", None)
+    has_masks = masks is not None
+    want_boxes = mode in ("box", "both")
+    want_masks = mode in ("mask", "both") and has_masks
 
     results: List[Dict[str, Any]] = []
     labels: List[str] = []
@@ -144,26 +212,35 @@ def detect(image_bytes: bytes, threshold: float = 0.5) -> Dict[str, Any]:
         confidence = (
             float(detections.confidence[i]) if detections.confidence is not None else 0.0
         )
-        xyxy = [float(v) for v in detections.xyxy[i]]
         name = _coco_class_name(class_id)
         labels.append(f"{name} {confidence:.2f}")
-        results.append(
-            {
-                "class_id": class_id,
-                "class_name": name,
-                "confidence": round(confidence, 4),
-                "box": {
-                    "x1": round(xyxy[0], 1),
-                    "y1": round(xyxy[1], 1),
-                    "x2": round(xyxy[2], 1),
-                    "y2": round(xyxy[3], 1),
-                },
+        item: Dict[str, Any] = {
+            "class_id": class_id,
+            "class_name": name,
+            "confidence": round(confidence, 4),
+        }
+        if want_boxes:
+            xyxy = [float(v) for v in detections.xyxy[i]]
+            item["box"] = {
+                "x1": round(xyxy[0], 1),
+                "y1": round(xyxy[1], 1),
+                "x2": round(xyxy[2], 1),
+                "y2": round(xyxy[3], 1),
             }
-        )
+        if want_masks:
+            mask = np.asarray(masks[i]).astype(bool)
+            item["mask_area"] = int(mask.sum())
+            item["polygon"] = _largest_polygon(mask)
+        results.append(item)
 
-    annotated = _annotate(image, detections, labels)
+    annotated = _annotate(
+        image, detections, labels, draw_boxes=want_boxes, draw_masks=want_masks
+    )
 
     return {
+        "mode": mode,
+        "task": "segment" if has_masks else "detect",
+        "has_masks": has_masks,
         "detections": results,
         "count": len(results),
         "annotated_image": annotated,
@@ -171,5 +248,5 @@ def detect(image_bytes: bytes, threshold: float = 0.5) -> Dict[str, Any]:
         "image_size": {"width": image.width, "height": image.height},
         "hardware": detect_device(),
         "hardware_label": device_label(),
-        "model": getattr(model, "__rfdetr_class__", _MODEL_CLASSES.get(MODEL_SIZE)),
+        "model": getattr(model, "__rfdetr_class__", _model_class_name()),
     }

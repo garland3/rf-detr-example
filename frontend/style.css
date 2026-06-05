@@ -87,6 +87,30 @@ main {
 .controls label { font-size: .9rem; color: var(--muted); }
 input[type=range] { width: 100%; accent-color: var(--accent); }
 
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel-2);
+  width: fit-content;
+}
+.segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented label {
+  padding: .5rem 1rem;
+  cursor: pointer;
+  font-size: .9rem;
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+  transition: background .15s, color .15s;
+}
+.segmented label:last-of-type { border-right: none; }
+.segmented input:checked + label {
+  background: var(--accent);
+  color: white;
+}
+.segmented label:hover { color: var(--text); }
+
 button {
   background: linear-gradient(180deg, var(--accent), var(--accent-2));
   color: white;
