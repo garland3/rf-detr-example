@@ -53,6 +53,13 @@ _predict_lock = threading.Lock()
 
 
 def _build_model():
+    # On FIPS-enabled hosts, OpenSSL disables MD5 and RF-DETR's weight-download
+    # integrity check (hashlib.md5) crashes startup. Apply the compatibility
+    # shim before importing rfdetr so the checksum uses usedforsecurity=False.
+    from .fips import enable as _enable_fips_md5
+
+    _enable_fips_md5()
+
     import rfdetr
 
     cls_name = _model_class_name()

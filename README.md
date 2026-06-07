@@ -225,6 +225,29 @@ detection inside the container, with automatic CPU fallback).
 > inference correctly falls back to **CPU** — on a machine with a working CUDA
 > GPU the same code reports and uses the **GPU** automatically.
 
+## Troubleshooting
+
+### Startup fails on FIPS hosts: `... disabled for FIPS` (hashlib.md5)
+
+On a host with OpenSSL in **FIPS mode** (common in hardened/RHEL production
+environments), startup can crash while the model loads:
+
+```
+ValueError: [digital envelope routines: EVP_DigestInit_ex] disabled for FIPS
+  ... hashlib.md5()
+  ... rfdetr ... maybe_download_pretrain_weights -> _validate_file_md5
+```
+
+**Cause.** FIPS mode disables MD5 entirely. RF-DETR uses MD5 only to verify the
+integrity of its downloaded pretrained weights — a checksum, not a security
+operation — but it calls `hashlib.md5()` without flagging it as such, so
+OpenSSL refuses it and startup aborts.
+
+**Fix.** `backend/fips.py` applies a small compatibility shim that calls MD5
+with Python's `usedforsecurity=False` flag, which FIPS permits for non-security
+checksums. `backend/inference.py` enables it automatically before importing
+RF-DETR, so no configuration is needed. The shim is a no-op on non-FIPS hosts.
+
 ## Notes & limitations
 
 - This is a proof of concept: single-process, in-memory model and job queue, no
